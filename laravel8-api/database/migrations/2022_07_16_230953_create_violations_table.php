@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreateLabelsTable extends Migration
+class CreateViolationsTable extends Migration
 {
     /**
      * Run the migrations.
@@ -13,10 +13,12 @@ class CreateLabelsTable extends Migration
      */
     public function up()
     {
-        Schema::create('labels', function (Blueprint $table) {
-            $table->bigIncrements('labels_id');
+        Schema::create('violations', function (Blueprint $table) {
+            $table->bigIncrements('violations_id');
             $table->integer('cameras_id');
-            $table->json('labels_json')->nullable()->default('[]');
+            $table->string('violations_x_coordinate');
+            $table->string('violations_y_coordinate');
+            $table->string('violations_img');
             $table->timestamp('updated_at')->default(DB::raw('CURRENT_TIMESTAMP on update CURRENT_TIMESTAMP'));
             $table->timestamp('created_at')->default(DB::raw('CURRENT_TIMESTAMP'));
         });
@@ -29,6 +31,6 @@ class CreateLabelsTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('labels');
+        Schema::dropIfExists('violations');
     }
 }

@@ -15,12 +15,10 @@ class CreateBicyclesTable extends Migration
     {
         Schema::create('bicycles', function (Blueprint $table) {
             $table->bigIncrements('bicycles_id');
-            $table->integer('spots_id');
+            $table->integer('cameras_id');
             $table->integer('get_id');
             $table->string('bicycles_x_coordinate');
             $table->string('bicycles_y_coordinate');
-            $table->string('bicycles_first_time');
-            $table->string('bicycles_last_time');
             $table->string('bicycles_status');
             $table->timestamp('updated_at')->default(DB::raw('CURRENT_TIMESTAMP on update CURRENT_TIMESTAMP'));
             $table->timestamp('created_at')->default(DB::raw('CURRENT_TIMESTAMP'));

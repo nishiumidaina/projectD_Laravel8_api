@@ -11,11 +11,11 @@ import sys
 sys.path.insert(0, './yolov5')
 import datetime
 
+import json
 import argparse
 import os
 #import platform
 import shutil
-import time
 from pathlib import Path
 import numpy as np
 import cv2
@@ -23,7 +23,6 @@ import torch
 import torch.backends.cudnn as cudnn
 import time
 import itertools
-import sqlite3
 #import datetime
 from matplotlib import path
 
@@ -52,15 +51,15 @@ def detect(opt):
     parser = argparse.ArgumentParser()  
     parser.add_argument('--source', type=str, default='0', help='source')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 16 17')
-    parser.add_argument('--spot_id', type=str, default=0)
+    parser.add_argument('--camera_id', type=str, default=0)
     parser.add_argument('--save-txt', action='store_true', help='save MOT compliant results to *.txt')
     parser.add_argument('--yolo_model', nargs='+', type=str, default='yolov5m.pt', help='model.pt path(s)')
+    parser.add_argument('--save-crop', action='store_true', help='save cropped prediction boxes')
 
     args = parser.parse_args()
 
-    spot_id = args.spot_id
-    print(spot_id)
-    spot_id = int(spot_id)
+    camera_id = args.camera_id
+    camera_id = int(camera_id)
 #ボタンによる処理
     conn = mysql.connector.connect(
         host='127.0.0.1',
@@ -69,14 +68,15 @@ def detect(opt):
         password='0000',
         database='bicycle-projectd'
     )
+
     cur = conn.cursor(buffered=True)
-    cur.execute("SELECT spots_id, spots_name, spots_status FROM spots WHERE spots_id = %s" % spot_id)
+    cur.execute("SELECT cameras_id, cameras_name, cameras_status FROM cameras WHERE cameras_id = %s" % camera_id)
     db_lis = cur.fetchall()
 
     if 'Run' in db_lis[0][2]:
-        spot_id = db_lis[0][0]
+        camera_id = db_lis[0][0]
         cur = conn.cursor(buffered=True)
-        sql = ("UPDATE spots SET spots_status = %s WHERE spots_id = %s")
+        sql = ("UPDATE cameras SET cameras_status = %s WHERE cameras_id = %s")
         param = ('Run_process',db_lis[0][0])
         cur.execute(sql,param)
         shutil.rmtree('Python/Yolov5_DeepSort_Pytorch_test/runs/')        
@@ -89,7 +89,7 @@ def detect(opt):
     id_collect = []
     id_violation = []
     bicycle_lis = []
-    id_list = []
+    #id_list = []
 
     out, source, yolo_model, deep_sort_model, show_vid, save_vid, save_txt, imgsz, evaluate, half, \
         project, exist_ok, update, save_crop = \
@@ -119,6 +119,7 @@ def detect(opt):
         exp_name = "ensemble"
     exp_name = exp_name + "_" + deep_sort_model.split('/')[-1].split('.')[0]
     save_dir = increment_path(Path(project) / exp_name, exist_ok=exist_ok)  # increment run if project name exists
+    save_imgs = increment_path(Path("./bicycle_imgs/"), exist_ok=exist_ok)  # increment run if project name exists
     (save_dir / 'tracks' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
     # Load model
@@ -197,16 +198,16 @@ def detect(opt):
             #停止ボタンによる処理
             cur = conn.cursor(buffered=True)
             #print(spot_id)
-            cur.execute("SELECT spots_id, spots_name, spots_status FROM spots WHERE spots_id = '%s'" % spot_id)
+            cur.execute("SELECT cameras_id, cameras_name, cameras_status FROM cameras WHERE cameras_id = '%s'" % camera_id)
             db_lis_last = cur.fetchall()
             conn.commit()
             cur.close()
             if 'Stop' in db_lis_last[0][2]:
                 cur = conn.cursor(buffered=True)
-                sql = ("UPDATE spots SET spots_status = %s WHERE spots_id = %s")
-                param2 = ('None',spot_id)
+                sql = ("UPDATE cameras SET cameras_status = %s WHERE cameras_id = %s")
+                param2 = ('None',camera_id)
                 cur.execute(sql,param2)
-                cur.execute('DELETE FROM bicycles WHERE spots_id = %s',(spot_id,))
+                cur.execute('DELETE FROM bicycles WHERE cameras_id = %s',(camera_id,))
                 shutil.rmtree('Python/Yolov5_DeepSort_Pytorch_test/runs/track/')
                 conn.commit()
                 cur.close()
@@ -249,29 +250,27 @@ def detect(opt):
                     # Print counter
                     n_1 = (det[:, -1] == 0).sum() #ラベルAの総数をカウント
                     a = f"{n_1} "#{'A'}{'s' * (n_1 > 1)}, "
-                    #cv2.putText(im0, "BOX1_count" , (20, 50), 0, 1.0, (71, 99, 255), 3)
                     cv2.putText(im0, "Bicycle : " + str(a), (20, 50), 0, 0, (71, 99, 255), 3)
 
                     #停止ボタンによる処理
                     cur = conn.cursor(buffered=True)
-                    #print(spot_id)
-                    cur.execute("SELECT spots_id, spots_name, spots_status FROM spots WHERE spots_id = '%s'" % spot_id)
+                    cur.execute("SELECT cameras_id, cameras_name, cameras_status FROM cameras WHERE cameras_id = '%s'" % camera_id)
                     db_lis_last = cur.fetchall()
 
                     if 'Stop' in db_lis_last[0][2]:
                         cur = conn.cursor(buffered=True)
-                        sql = ("UPDATE spots SET spots_status = %s WHERE spots_id = %s")
-                        param2 = ('None',spot_id)
+                        sql = ("UPDATE cameras SET cameras_status = %s WHERE cameras_id = %s")
+                        param2 = ('None',camera_id)
                         cur.execute(sql,param2)
-                        cur.execute('DELETE FROM bicycles WHERE spots_id = %s',(spot_id,))
+                        cur.execute('DELETE FROM bicycles WHERE cameras_id = %s',(camera_id,))
                         shutil.rmtree('Python/Yolov5_DeepSort_Pytorch_test/runs/track/')
                         conn.commit()
                         cur.close()
                         exit()
                     elif 'Run_process' in db_lis_last[0][2]:
                         cur = conn.cursor(buffered=True)
-                        sql = ("UPDATE spots SET spots_count = %s WHERE spots_id = %s")
-                        param2 = (a,spot_id)
+                        sql = ("UPDATE cameras SET cameras_count = %s WHERE cameras_id = %s")
+                        param2 = (a,camera_id)
                         cur.execute(sql,param2)
                         # DB操作終了
                     conn.commit()
@@ -288,7 +287,6 @@ def detect(opt):
 
                 # draw boxes for visualization
                 if len(outputs[i]) > 0:
-                    
                     for j, (output) in enumerate(outputs[i]):
 
                         bboxes = output[0:4]
@@ -298,8 +296,16 @@ def detect(opt):
                         conf = output[6]
 
                         #ラベリングの配列
-                        #label = [["A","2,2","4,7","7,6","7,1"]]
-                        label = [["A", 0,350, 0,600, 625,675, 700, 600]]
+                        #jsonをリストに変換し座標として扱う
+                        cur = conn.cursor(buffered=True)
+                        cur.execute("SELECT labels_json FROM labels WHERE cameras_id = '%s'" % camera_id)
+                        label=[]
+                        label_lis = cur.fetchall()
+                        for i1 in range(len(label_lis)):
+                            json_load = json.loads(label_lis[i1][0])
+                            label_ap = [json_load["label_mark"],json_load["label_point1X"],json_load["label_point1Y"],json_load["label_point2X"],json_load["label_point2Y"],json_load["label_point3X"],json_load["label_point3Y"],json_load["label_point4X"],json_load["label_point4Y"]]
+                            label.append(label_ap)
+                        #label = [["A", 0,350, 0,600, 625,675, 700, 600]]
                         for il in range(len(label)):
                             label_mame = label[il][0]
                             P1X = label[il][1]
@@ -310,6 +316,7 @@ def detect(opt):
                             P3Y = label[il][6]
                             P4X = label[il][7]
                             P4Y = label[il][8]
+                            del label[:]
                             polygon = path.Path(
                                 [
                                     [P1X, P1Y],
@@ -328,26 +335,33 @@ def detect(opt):
                                 
                                 #自転車の座標処理
                                 cur = conn.cursor(buffered=True)
-                                #print(spot_id)
-                                cur.execute("SELECT get_id FROM bicycles WHERE spots_id = '%s'" % spot_id)
+                                cur.execute("SELECT get_id FROM bicycles WHERE cameras_id = '%s'" % camera_id)
                                 bicycle_lis = cur.fetchall()
-                                #print(bicycle_lis)
                                 if not id in bicycle_lis:
-                                    cur.execute("INSERT INTO bicycles (spots_id,get_id,bicycles_x_coordinate,bicycles_y_coordinate) VALUES (%s, %s, %s, %s)", (spot_id,id_out,X_out,Y_out))
+                                    cur.execute("INSERT INTO bicycles (cameras_id,get_id,bicycles_x_coordinate,bicycles_y_coordinate,bicycles_status) VALUES (%s, %s, %s, %s, %s)", (camera_id,id_out,X_out,Y_out,"None"))
                                 elif id in bicycle_lis:
-                                    cur.execute("UPDATE bicycles SET bicycles_x_coordinate = %s,bicycles_y_coordinate = %s WHERE get_id = %s AND spots_id = %s",(X_out, Y_out,id_out, spot_id))
-
-                                cur.execute("SELECT updated_at, created_at FROM bicycles WHERE spots_id = %s AND get_id = %s",(spot_id, id_out))
+                                    cur.execute("UPDATE bicycles SET bicycles_x_coordinate = %s,bicycles_y_coordinate = %s WHERE get_id = %s AND cameras_id = %s",(X_out, Y_out,id_out, camera_id))
+                                cur.execute("SELECT bicycles_status, updated_at, created_at FROM bicycles WHERE cameras_id = %s AND get_id = %s",(camera_id, id_out))
                                 time_lis = cur.fetchall()
-                                #print(time_lis)
 
                                 #放置時間計測
-                                out_time = 60 #違反時間を設定(秒数)
-                                time_dif = time_lis[0][0] - time_lis[0][1]
+                                out_time = 10 #違反時間を設定(秒数)
+                                time_dif = time_lis[0][1] - time_lis[0][2]
                                 time_total = time_dif.total_seconds() 
                                 if time_total >= out_time:
-                                    #time_lis[3] = '違反車両'
-                                    cur.execute("UPDATE bicycles SET bicycles_status = %s WHERE get_id = %s AND spots_id = %s",('違反', id_out, spot_id))
+                                    if time_lis[0][0] == "None":
+                                        cur.execute("UPDATE bicycles SET bicycles_status = %s WHERE get_id = %s AND cameras_id = %s",('違反', id_out, camera_id))
+                                        #違反車両の画像を保存
+                                        txt_file_name = txt_file_name if (isinstance(path, list) and len(path) > 1) else ''
+                                        file_path = Path("./bicycle_imgs/") / str(camera_id) / f'{p.stem}.jpg'
+                                        id_str = str(camera_id)
+                                        jpg = f'{p.stem}.jpg'
+                                        file_path_json = "bicycle_imgs/%s/%s" % (id_str,jpg)
+                                        save_one_box(bboxes, imc, file_path, BGR=True)
+                                        #file_path_str = "%s" % (file_path)
+                                        cur.execute("INSERT INTO violations (cameras_id, violations_x_coordinate, violations_y_coordinate, violations_img) VALUES (%s, %s, %s, %s)", (camera_id,X_out,Y_out,file_path_json))                                        
+                                    elif time_lis[0][0] == "違反":
+                                        cur.execute("UPDATE bicycles SET bicycles_status = %s WHERE get_id = %s AND cameras_id = %s",('違反(記録済み)', id_out, camera_id))
                                     if not id2 in id_violation:
                                         id_violation.append(id2)
                                 id_collect.append(int(math.floor(float(id2))))                           
@@ -365,25 +379,23 @@ def detect(opt):
                             with open(txt_path + '.txt', 'a') as f:
                                 f.write(('%g ' * 10 + '\n') % (frame_idx + 1, id, bbox_left,  # MOT format
                                                                bbox_top, bbox_w, bbox_h, -1, -1, -1, i))
-
+                        #画像のトリミング（1回目の違反時に記録する）
                         if save_vid or save_crop or show_vid:  # Add bbox to image
                             c = int(cls)  # integer class
                             label = f'{id:0.0f} {names[c]} {conf:.2f}'
                             annotator.box_label(bboxes, label, color=colors(c, True))
-                            if save_crop:
-                                txt_file_name = txt_file_name if (isinstance(path, list) and len(path) > 1) else ''
-                                save_one_box(bboxes, imc, file=save_dir / 'crops' / txt_file_name / names[c] / f'{id}' / f'{p.stem}.jpg', BGR=True)
+                            #if save_crop:
+                                #txt_file_name = txt_file_name if (isinstance(path, list) and len(path) > 1) else ''
+                                #save_one_box(bboxes, imc, file=save_imgs / 'crops' / txt_file_name / names[c] / f'{id}' / f'{p.stem}.jpg', BGR=True)
+                        #指定時間処理を中断させる
+                        #time.sleep(10)
                 #確認用
                 #無くなったIDを削除する
                 for i3 in range(len(id_count)):
                     if not id_count[i3][0] in id_collect:
                         id_count[i3] = "None"
                 target = "None"  #Noneを取り除く
-                id_count = [item for item in id_count if item != target]
-                for i_b in range(len(bicycle_lis)):
-                    if not bicycle_lis[i_b][0] in id_collect:
-                        cur = conn.cursor(buffered=True)
-                        cur.execute("UPDATE bicycles SET bicycles_status = %s WHERE get_id = %s AND spots_id = %s",('None', bicycle_lis[i_b][0], spot_id)) 
+                id_count = [item for item in id_count if item != target] 
                 print(id_collect)#現在のトラッキング
                 #print(id_count)
                 #print(id_violation)#違反車両
@@ -430,7 +442,7 @@ def detect(opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--spot_id', type=str, default=0)
+    parser.add_argument('--camera_id', type=str, default=0)
     parser.add_argument('--yolo_model', nargs='+', type=str, default='yolov5m.pt', help='model.pt path(s)')
     parser.add_argument('--deep_sort_model', type=str, default='osnet_x0_25')
     parser.add_argument('--source', type=str, default='0', help='source')  # file/folder, 0 for webcam

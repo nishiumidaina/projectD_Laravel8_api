@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreateLabelsTable extends Migration
+class CreateCamerasTable extends Migration
 {
     /**
      * Run the migrations.
@@ -13,14 +13,18 @@ class CreateLabelsTable extends Migration
      */
     public function up()
     {
-        Schema::create('labels', function (Blueprint $table) {
-            $table->bigIncrements('labels_id');
-            $table->integer('cameras_id');
-            $table->json('labels_json')->nullable()->default('[]');
+        Schema::create('cameras', function (Blueprint $table) {
+            $table->bigIncrements('cameras_id');
+            $table->integer('spots_id');
+            $table->string('cameras_name');
+            $table->string('cameras_url');
+            $table->string('cameras_status')->defalut('None');
+            $table->integer('cameras_count')->defalut(0);
             $table->timestamp('updated_at')->default(DB::raw('CURRENT_TIMESTAMP on update CURRENT_TIMESTAMP'));
             $table->timestamp('created_at')->default(DB::raw('CURRENT_TIMESTAMP'));
         });
     }
+
 
     /**
      * Reverse the migrations.
@@ -29,6 +33,6 @@ class CreateLabelsTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('labels');
+        Schema::dropIfExists('cameras');
     }
 }

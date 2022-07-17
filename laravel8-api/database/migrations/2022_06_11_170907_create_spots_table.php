@@ -20,10 +20,10 @@ class CreateSpotsTable extends Migration
             $table->string('spots_latitude');
             $table->string('spots_longitude');
             $table->string('spots_address');
-            $table->string('spots_url');
             $table->string('spots_status')->defalut('None');
             $table->integer('spots_count')->defalut(0);
             $table->integer('spots_over_time')->defalut(0);
+            $table->string('spots_img');
             $table->timestamp('updated_at')->default(DB::raw('CURRENT_TIMESTAMP on update CURRENT_TIMESTAMP'));
             $table->timestamp('created_at')->default(DB::raw('CURRENT_TIMESTAMP'));
         });
