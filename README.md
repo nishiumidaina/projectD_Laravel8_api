@@ -15,7 +15,7 @@
 ### http://localhost:8000/api/store_spot/3←URIの最後にユーザーIDを入れる
 ### ・駐輪場を登録する
 ### http://localhost:8000/api/store_camera/3←URIの最後に駐輪場IDを入れる
-・カメラを登録する
+### ・カメラを登録する
 
 ### http://localhost:8000/api/delete_spot/2←URIの最後に駐輪場のIDを入れる
 ### ・登録した駐輪場とカメラの削除
